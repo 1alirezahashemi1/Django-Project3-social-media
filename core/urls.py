@@ -10,6 +10,8 @@ urlpatterns = [
     path("logout/",views.logout,name="logout"),
     path("settings/",views.settings,name="settings"),
     path("upload",views.upload,name="upload"),
+    path("follow",views.follow,name="follow"),
     path("like-post/<pk>",views.like_post,name="like_post"),
-
+    path("profile/<str:pk>",views.profile,name="profile"),
+    path('comment',views.comment,name='comment'),
 ]

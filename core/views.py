@@ -1,21 +1,36 @@
+from audioop import reverse
+from itertools import chain
+import re
 from django.shortcuts import render , redirect
 from django.contrib import messages
 from django.http import HttpResponse
 from django.contrib.auth.models import User
 from django.contrib import auth
 from django.contrib.auth import authenticate
-from . models import Like, Post, Profile
+from . models import Comment, FollowesCount, Like, Post, Profile
 from django.contrib.auth.decorators import login_required
 # Create your views here.
 
 @login_required
 def index(request):
-    user_object = User.objects.get(username = request.user.username)
+    user_object = User.objects.get(username = request.user)
     user_profile = Profile.objects.get(username = user_object)
     posts = Post.objects.all()
+
+    following_list = []
+    feed_list = []
+    people_followed = FollowesCount.objects.filter(follower = request.user)
+    for user in people_followed:
+        following_list.append(user.user)
+    
+    for each in following_list:
+        posts = Post.objects.filter(user = each)
+        feed_list.append(posts)
+
+    feed_list = chain(*feed_list)
     context = {
         'profile':user_profile ,
-        'posts':posts
+        'posts':feed_list
     }
     return render(request,'index.html',context)
 
@@ -113,7 +128,6 @@ def like_post(request , pk):
     username = request.user.username 
     post_id = pk
     post = Post.objects.get(id = post_id)
-
     like_filter = Like.objects.filter(post_id=post_id,username=username)
 
     if like_filter.exists():
@@ -131,8 +145,75 @@ def like_post(request , pk):
 
 
     
+def profile(request,pk):
+    user_object = User.objects.get(username = pk)
+    user_profile = Profile.objects.get(username = user_object)
+    user_post = Post.objects.filter(user=pk)
+    post_lenght = len(user_post)
+    context = {
+        'user_object':user_object,
+        'user_profile':user_profile,
+        'user_post':user_post,
+        'post_lenght':post_lenght
+    }
+    return render(request,'profile.html',context)
 
-      
 
+def follow(request):
+    if request.method == 'POST':   
+        user = request.POST['user']
+        follower = request.POST['follower']
+        if FollowesCount.objects.filter(follower=follower,user=user).exists():
+            followed = FollowesCount.objects.get(follower=follower,user=user)
+            followed.delete()      
 
+            following_update = Profile.objects.get(username__username=follower)
+            if following_update == 0:
+                    following_update == 0
+            else:
+                following_update.following -= 1
+                following_update.save()
 
+            increase_follower = Profile.objects.get(username__username=user)
+            increase_follower.follower -= 1
+            increase_follower.save()
+
+            messages.info(request,'You unfollowed this user')
+            return redirect('profile/'+ user)
+        else:
+            following_update = Profile.objects.get(username__username=follower)
+            following_update.following += 1
+            following_update.save()
+            new_follower = FollowesCount.objects.create(follower=follower,user=user)
+            new_follower.save()
+            increase_follower = Profile.objects.get(username__username=user)
+            increase_follower.follower += 1
+            increase_follower.save()
+            messages.info(request,'Congrats you started folllowing this user')
+            return redirect('profile/'+ user)
+    
+    else:
+        messages.info(request,"You Unfollowed This User")
+        return redirect('/')
+
+#? author of comment
+#? post tnat has comment
+#? post belongs to which user
+#? content of comment
+
+def comment(request):
+    user_object = request.user.username
+    if request.method == "POST":
+        author = user_object
+        user = request.POST['user']
+        comment = request.POST['comment']
+        id = request.POST['postid']
+        post = Post.objects.get(id=id)
+
+        new_comment = Comment.objects.create(author=author,post=post,user=user,comment=comment)
+        new_comment.save()
+        messages.info(request,f"You add comment for post of {user}")
+        return redirect('/')
+
+    else:
+        return redirect('/')
